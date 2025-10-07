@@ -100,7 +100,7 @@
 			printf("%s%s", cc(220, $s), cc('underline 225', $cmd));
 		}
 
-		echo "\n\n";
+		printf("\n%s\n\n", cc('248 italic', 'Type command or number(s) of entries to mount:'));
 
 	}
 
@@ -236,8 +236,8 @@
 		$commands = array_values($commands);
 		input:
 		$input = readln('mountsshfs> ');
-		echo chr(27) . '[0G' . chr(27) . '[1A';
-		clear_line();
+		// echo chr(27) . '[0G' . chr(27) . '[1A';
+		// clear_line();
 		if ($input === '') goto input;
 
 		if (preg_match('/^[0-9 ]+$/', $input)) {
@@ -279,16 +279,26 @@
 					$db[$index]['rsa'],
 					$db[$index]['mount_point']
 				);
-				printf("Running command: %s\n", cc([38, 'bold'], $cmd));
+				$mount_point = '/mnt/' . $db[$index]['mount_point'];
+				$retries = 0;
+				sshfs_retry:
+				printf("Running command:\n%s\n", cc([38, 'bold'], $cmd));
+				unset($cmd_output);
 				exec($cmd, $cmd_output);
 				if (!empty($cmd_output)) {
+					printf("%s\n", cc(210, implode("\n", $cmd_output)));
 					if (preg_match('/(Permission denied|Transport endpoint is not connected)/', $cmd_output[0])) {
-						printf("Unmounting %s\n", cc(220, '/mnt/' . $db[$index]['mount_point']));
-						exec('sudo umount -l /mnt/' . $db[$index]['mount_point']);
-						printf("Running command: %s\n", cc([38, 'bold'], $cmd));
-						exec($cmd, $cmd_output);
-					} else var_dump($cmd_output);
-				}
+						printf("Unmounting %s\n", cc(220, $mount_point));
+						unset($umount_output);
+						exec('sudo umount -l ' . $mount_point . ' 2>&1', $umount_output);
+						if (!empty($umount_output))
+							printf("%s\n", cc(210, implode("\n", $umount_output)));
+						$retries++;
+						if ($retries === 3) {
+							printf("%s\n", cc(210, 'Exceeded amount of retries (3)'));
+						} else goto sshfs_retry;
+					}
+				} else printf("%s: %s\n", cc(82, 'Successfully mounted'), cc(220, $mount_point));
 			}
 				
 		} else {
