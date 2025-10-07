@@ -3,7 +3,7 @@
 	$config_file = __DIR__ . '/data.json';
 	$pids = [];
 	$active_mount_points = [];
-	define('VERSION', '2.1006.1');
+	define('VERSION', '2.1007.2');
 	
 	function load_config()
 	{
@@ -100,7 +100,7 @@
 			printf("%s%s", cc(220, $s), cc('underline 225', $cmd));
 		}
 
-		printf("\n%s\n\n", cc('248 italic', 'Type command or number(s) of entries to mount:'));
+		printf("\n\n%s\n\n", cc('248 italic', 'Type command or number(s) of entries to mount:'));
 
 	}
 
@@ -130,6 +130,7 @@
 
 				} else die("Invalid preg: {$pgrep}\n");
 			}
+			print(PHP_EOL);
 			cli_table($cli_table, ['PID', 'CONNECTION', 'MOUNT POINT', 'REMOTE DIR']);
 			print(PHP_EOL);
 
@@ -298,7 +299,11 @@
 							printf("%s\n", cc(210, 'Exceeded amount of retries (3)'));
 						} else goto sshfs_retry;
 					}
-				} else printf("%s: %s\n", cc(82, 'Successfully mounted'), cc(220, $mount_point));
+				} else {
+					printf("%s: %s\n", cc(82, 'Successfully mounted'), cc(220, $mount_point));
+					pgrep_list();
+					print_list();
+				}
 			}
 				
 		} else {
@@ -467,6 +472,7 @@
 					printf("Running command: %s\n", cc([197, 'bold'], $cmd));
 					exec($cmd);
 					pgrep_list();
+					print_list();
 					break;
 
 				case 'kill all':
@@ -480,6 +486,7 @@
 						printf("Running command: %s\n", cc([197, 'bold'], $cmd));
 						exec($cmd);
 						pgrep_list();
+						print_list();
 					}
 					break;
 
