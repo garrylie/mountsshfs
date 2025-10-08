@@ -4,7 +4,7 @@
 	$pids = [];
 	$active_mount_points = [];
 	$stale_mount_points = [];
-	define('VERSION', '2.1007.3');
+	define('VERSION', '2.1008.1');
 	
 	function load_config()
 	{
