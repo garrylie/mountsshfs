@@ -154,7 +154,8 @@
 
 	function print_version()
 	{
-		printf("Version: %s\n", cc('bold 226', VERSION));
+		printf("%s\n", cc('underline italic', 'https://github.com/garrylie/mountsshfs'));
+		printf("Version %s\n", cc('bold 226', VERSION));
 	}
 
 	function cli_table($table, $header = null, $options = [])
@@ -336,6 +337,7 @@
 
 	$commands = ['add', 'edit', 'delete', 'kill', 'kill all', 'list', 'version', 'exit'];
 
+	print_version();
 	pgrep_list();
 	print_list();
 	while (true) {
@@ -363,6 +365,7 @@
 					$indexes[] = intval($index) - 1;
 			}
 
+			$success = false;
 			foreach ($indexes as $index) {
 
 				if (!array_key_exists($index, $db)) {
@@ -407,9 +410,12 @@
 					}
 				} else {
 					printf("%s: %s\n", cc(82, 'Successfully mounted'), cc(220, $mount_point));
-					pgrep_list();
-					print_list();
+					$success = true;
 				}
+			}
+			if ($success) {
+				pgrep_list();
+				print_list();
 			}
 				
 		} else {
