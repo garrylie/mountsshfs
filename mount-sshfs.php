@@ -4,7 +4,7 @@
 	$pids = [];
 	$active_mount_points = [];
 	$stale_mount_points = [];
-	define('VERSION', '2.1008.1');
+	define('VERSION', '2.1009.1');
 	
 	function load_config()
 	{
@@ -94,8 +94,12 @@
 				// var_dump($is_mounted);
 				$cc = (strpos($arr['mount_point'], 'ampseo') === 0) ? '232 bg:220' : '232 bg:82';
 				if (empty($is_mounted) || $is_mounted === 'Killed') {
-					$stale_mount_points[] = $mount_point;
-					$cc = 210;
+					kill_mount($i);
+					$is_mounted = exec_timeout('mountpoint ' . $mount_point, 1);
+					if (empty($is_mounted) || $is_mounted === 'Killed') {
+						$stale_mount_points[] = $mount_point;
+						$cc = 210;
+					}
 				}
 				$color = in_array($mount_point . '/', $active_mount_points) ? $cc : 245;
 				printf(" % 2d. %s\n", ++$i, cc($color, $arr['mount_point']));
