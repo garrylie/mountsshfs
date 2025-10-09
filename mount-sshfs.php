@@ -1,10 +1,12 @@
 <?php
 
+	$username = get_current_user();
+
 	$config_file = __DIR__ . '/data.json';
 	$pids = [];
 	$active_mount_points = [];
 	$stale_mount_points = [];
-	define('VERSION', '2.1009.1');
+	define('VERSION', '2.1009.2');
 	
 	function load_config()
 	{
@@ -90,7 +92,13 @@
 				unset($mountpoint_output);
 				// $is_mounted = exec('timeout -s 20 -k 1 .1 mountpoint ' . $mount_point . ' 2>&1', $mountpoint_output, $result_code);
 				// printf("%s\n", $arr['mount_point']);
-				$is_mounted = exec_timeout('mountpoint ' . $mount_point, 1);
+				try {
+					$is_mounted = exec_timeout('mountpoint ' . $mount_point, 1);
+				} catch (Exception $e) {
+					if (strpos($e->getMessage(), 'No such file or directory') !== false) {
+						sudo_mkdir($mount_point);
+					}
+				}
 				// var_dump($is_mounted);
 				$cc = (strpos($arr['mount_point'], 'ampseo') === 0) ? '232 bg:220' : '232 bg:82';
 				if (empty($is_mounted) || $is_mounted === 'Killed') {
@@ -129,7 +137,6 @@
 			$cli_table = [];
 
 			foreach ($pgrep_output as $pgrep) {
-				# 1642242 sshfs root@uc:/var/ -p 22 -o IdentityFile=/home/garry/.ssh/ultimatecup-ssh-key.pub /mnt/ultimatecup/
 				if (preg_match('/^(?<pid>\d+)\ssshfs\s(?<username>[^@]+)@(?<host>[^:]+):(?<path>\S+) -p 22 -o IdentityFile=(?<pub>\S+)\s(?<mount>\/.+)$/', $pgrep, $m)) {
 					$pids[] = $m['pid'];
 					$active_mount_points[(int)$m['pid']] = $m['mount'];
@@ -337,6 +344,12 @@
 		print_list();
 	}
 
+	function sudo_mkdir($mount_point) {
+		global $username;
+		printf("Directory %s not exists, creating\n", cc(220, $mount_point));
+		exec(sprintf('sudo mkdir -p "%1$s" && sudo chown %2$s:%2$s "%1$s"', $mount_point, $username));
+	}
+
 	$db = load_config();
 
 	$commands = ['add', 'edit', 'delete', 'kill', 'kill all', 'list', 'version', 'exit'];
@@ -380,9 +393,7 @@
 				$mount_dir = '/mnt/' . $db[$index]['mount_point'];
 				if (in_array($mount_dir, $stale_mount_points)) kill_mount($index);
 				if (!file_exists($mount_dir)) {
-					printf("Directory %s not exists, creating\n", cc(220, $mount_dir));
-					exec(sprintf('sudo mkdir -p "%1$s" && sudo chown garry:garry "%1$s"',
-						$mount_dir));
+					sudo_mkdir($mount_dir);
 				}
 
 				$cmd = sprintf('sshfs %s@%s:%s -p %d -o IdentityFile=~/.ssh/%s,reconnect,ServerAliveInterval=60,ServerAliveCountMax=3 /mnt/%s/ 2>&1 &',
@@ -431,7 +442,7 @@
 			}
 			switch ($command) {
 				case 'add':
-					exec("find /home/garry/.ssh -type f -name '*.pub'", $find_output);
+					exec("find /home/{$username}/.ssh -type f -name '*.pub'", $find_output);
 					$find_output = array_map(function ($x) { return preg_replace('~^.+/~', '', $x); }, $find_output);
 					clear_line();
 
@@ -457,9 +468,7 @@
 
 					$mount_dir = '/mnt/' . preg_replace('~^/mnt/~', '', $mount_point);
 					if (!file_exists($mount_dir)) {
-						printf("Directory %s not exists, creating\n", cc(220, $mount_dir));
-						exec(sprintf('sudo mkdir -p "%1$s" && sudo chown garry:garry "%1$s"',
-							$mount_dir));
+						sudo_mkdir($mount_dir);
 					}
 
 					$rsa = $find_output[$pub_index];
@@ -530,9 +539,7 @@
 
 					$mount_dir = '/mnt/' . preg_replace('~^/mnt/~', '', $mount_point);
 					if (!file_exists($mount_dir)) {
-						printf("Directory %s not exists, creating\n", cc(220, $mount_dir));
-						exec(sprintf('sudo mkdir -p "%1$s" && sudo chown garry:garry "%1$s"',
-							$mount_dir));
+						sudo_mkdir($mount_dir);
 					}
 
 					if ($rsa && !file_exists('~/.ssh/' . $rsa)) {
