@@ -1,12 +1,12 @@
 <?php
 
-	$username = get_current_user();
+	$current_user = get_current_user();
 
 	$config_file = __DIR__ . '/data.json';
 	$pids = [];
 	$active_mount_points = [];
 	$stale_mount_points = [];
-	define('VERSION', '2.1009.2');
+	define('VERSION', '2.1010.1');
 	
 	function load_config()
 	{
@@ -345,9 +345,9 @@
 	}
 
 	function sudo_mkdir($mount_point) {
-		global $username;
+		global $current_user;
 		printf("Directory %s not exists, creating\n", cc(220, $mount_point));
-		exec(sprintf('sudo mkdir -p "%1$s" && sudo chown %2$s:%2$s "%1$s"', $mount_point, $username));
+		exec(sprintf('sudo mkdir -p "%1$s" && sudo chown %2$s:%2$s "%1$s"', $mount_point, $current_user));
 	}
 
 	$db = load_config();
@@ -442,29 +442,33 @@
 			}
 			switch ($command) {
 				case 'add':
-					exec("find /home/{$username}/.ssh -type f -name '*.pub'", $find_output);
+					exec("find /home/{$current_user}/.ssh -type f -name '*.pub'", $find_output);
 					$find_output = array_map(function ($x) { return preg_replace('~^.+/~', '', $x); }, $find_output);
 					clear_line();
 
-					$username = readln('ssh username: ', true);
-					$host     = readln('ssh host: ', true);
-					$path     = readln('ssh remote path: ', true);
-					$port     = 22;
-					$id_rsa   = null;
+					print(PHP_EOL);
+					$login       = readln(sprintf("\t%s ", cc(248, 'ssh username:')));
+					$host        = readln(sprintf("\t%s ", cc(248, 'ssh host:')));
+					$path        = readln(sprintf("\t%s ", cc(248, 'ssh remote path:')));
+					$mount_point = readln(sprintf("\t%s ", cc(248, 'mount point:')));
+					$port        = 22;
+					$id_rsa      = null;
 
+
+					print(PHP_EOL);
 					foreach ($find_output as $key => $pub) {
-						$color = 13;
+						$color = 219;
 						if ($pub == 'id_rsa.pub') {
 							$find_output[$key] = 'id_rsa';
 							$id_rsa = $key;
 							$color = 82;
 						}
-						printf("  %d. %s\n", $key, cc($color, $pub));
+						printf("\t%d. %s\n", $key, cc($color, $pub));
 					}
 
 					$pub_index   = readln("\npublic key (index): ", true);
 					if (! $pub_index) $pub_index = $id_rsa;
-					$mount_point = readln('mount point: ', true);
+					
 
 					$mount_dir = '/mnt/' . preg_replace('~^/mnt/~', '', $mount_point);
 					if (!file_exists($mount_dir)) {
@@ -474,7 +478,7 @@
 					$rsa = $find_output[$pub_index];
 
 					print("New entry saved!\n");
-					printf("   username: %s\n", cc(228, $username));
+					printf("   username: %s\n", cc(228, $login));
 					printf("       host: %s\n", cc(228, $host));
 					printf("       path: %s\n", cc(228, $path));
 					printf("       port: %s\n", cc(228, $port));
@@ -482,7 +486,7 @@
 					printf("mount_point: %s\n\n", cc(228, $mount_dir));
 
 					$db[] = [
-						'username'    => $username,
+						'username'    => $login,
 						'host'        => $host,
 						'path'        => $path,
 						'port'        => $port,
@@ -531,7 +535,7 @@
 
 					edit:
 
-					$username    = readln('ssh username: ');
+					$login       = readln('ssh username: ');
 					$host        = readln('ssh host: ');
 					$path        = readln('ssh remote path: ');
 					$rsa         = readln('public key: ');
