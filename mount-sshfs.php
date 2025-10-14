@@ -21,7 +21,6 @@
 		if (!$config) fatal_error('Failed to read file', $config_file);
 
 		$array = json_decode($config, true);
-		array_multisort(array_column($array, 'mount_point'), SORT_ASC, $array);
 		return array_values($array);
 
 	}
