@@ -6,7 +6,7 @@
 	$pids = [];
 	$active_mount_points = [];
 	$stale_mount_points = [];
-	define('VERSION', '2.1010.1');
+	define('VERSION', '2.1014.1');
 	
 	function load_config()
 	{
@@ -21,6 +21,7 @@
 		if (!$config) fatal_error('Failed to read file', $config_file);
 
 		$array = json_decode($config, true);
+		array_multisort(array_column($array, 'mount_point'), SORT_ASC, $array);
 		return array_values($array);
 
 	}
@@ -100,7 +101,7 @@
 					}
 				}
 				// var_dump($is_mounted);
-				$cc = (strpos($arr['mount_point'], 'ampseo') === 0) ? '232 bg:220' : '232 bg:82';
+				$cc = (substr_count($arr['mount_point'], '/') > 1) ? '232 bg:220' : '232 bg:82';
 				if (empty($is_mounted) || $is_mounted === 'Killed') {
 					kill_mount($i);
 					$is_mounted = exec_timeout('mountpoint ' . $mount_point, 1);
@@ -594,7 +595,8 @@
 						$cmd = sprintf('sudo kill -9 %s', implode(' ', $pids));
 						printf("Running command:\n%s\n", cc([197, 'bold'], $cmd));
 						exec($cmd);
-						$cmd = "sudo umount -l /mnt/* /mnt/ampseo/*";
+						foreach ($db as $arr)
+							$cmd = "sudo umount -l '/mnt/{$arr['mount_point']}'";
 						printf("Running command:\n%s\n", cc([197, 'bold'], $cmd));
 						exec($cmd);
 						pgrep_list();
