@@ -143,7 +143,6 @@
 
 					$cli_table[] = [
 						[$m['pid'], 197],
-						[$m['username'] . '@' . $m['host'], 214],
 						[$m['mount'], 220],
 						[$m['path'], 38],
 					];
@@ -151,7 +150,7 @@
 				} else die("Invalid preg: {$pgrep}\n");
 			}
 			print(PHP_EOL);
-			cli_table($cli_table, ['PID', 'CONNECTION', 'MOUNT POINT', 'REMOTE DIR']);
+			cli_table($cli_table, ['PID', 'MOUNT POINT', 'REMOTE DIR']);
 			print(PHP_EOL);
 
 		} else printf("%s\n", cc('italic', 'No sshfs process found'));
