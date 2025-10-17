@@ -400,7 +400,7 @@
 				$mount_point = '/mnt/' . $db[$index]['mount_point'];
 				$retries = 0;
 				sshfs_retry:
-				printf("Running command:\n%s\n", cc([38, 'bold'], $cmd));
+				// printf("Running command:\n%s\n", cc([38, 'bold'], $cmd));
 				unset($cmd_output);
 				exec($cmd, $cmd_output);
 				if (!empty($cmd_output)) {
