@@ -6,7 +6,7 @@
 	$pids = [];
 	$active_mount_points = [];
 	$stale_mount_points = [];
-	define('VERSION', '2.1017.1');
+	define('VERSION', '2.1017.3');
 	
 	function load_config()
 	{
@@ -97,7 +97,7 @@
 						sudo_mkdir($mount_point);
 					}
 				}
-				$cc = (substr_count($arr['mount_point'], '/') > 1) ? '232 bg:220' : '232 bg:82';
+				$cc = (substr_count($arr['mount_point'], '/')) ? '220 bold underline' : '82 bold underline';
 				if (empty($is_mounted) || $is_mounted === 'Killed') {
 					kill_mount($i);
 					$is_mounted = exec_timeout('mountpoint ' . $mount_point, 1);
