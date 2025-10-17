@@ -6,7 +6,7 @@
 	$pids = [];
 	$active_mount_points = [];
 	$stale_mount_points = [];
-	define('VERSION', '2.1014.1');
+	define('VERSION', '2.1017.1');
 	
 	function load_config()
 	{
@@ -90,8 +90,6 @@
 			foreach ($db as $arr) {
 				$mount_point = '/mnt/' . $arr['mount_point'];
 				unset($mountpoint_output);
-				// $is_mounted = exec('timeout -s 20 -k 1 .1 mountpoint ' . $mount_point . ' 2>&1', $mountpoint_output, $result_code);
-				// printf("%s\n", $arr['mount_point']);
 				try {
 					$is_mounted = exec_timeout('mountpoint ' . $mount_point, 1);
 				} catch (Exception $e) {
@@ -99,7 +97,6 @@
 						sudo_mkdir($mount_point);
 					}
 				}
-				// var_dump($is_mounted);
 				$cc = (substr_count($arr['mount_point'], '/') > 1) ? '232 bg:220' : '232 bg:82';
 				if (empty($is_mounted) || $is_mounted === 'Killed') {
 					kill_mount($i);
@@ -339,8 +336,6 @@
 		$cmd = "sudo umount -l {$mount_point}";
 		printf("Running command:\n%s\n", cc([197, 'bold'], $cmd));
 		exec($cmd);
-		pgrep_list();
-		print_list();
 	}
 
 	function sudo_mkdir($mount_point) {
@@ -387,7 +382,6 @@
 				if (!array_key_exists($index, $db)) {
 					warning('Invalid index', $index + 1);
 				}
-
 
 				$mount_dir = '/mnt/' . $db[$index]['mount_point'];
 				if (in_array($mount_dir, $stale_mount_points)) kill_mount($index);
@@ -583,6 +577,8 @@
 							goto input;
 						}
 						kill_mount($index);
+						pgrep_list();
+						print_list();
 					}
 					break;
 
