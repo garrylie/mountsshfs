@@ -6,7 +6,7 @@
 	$pids = [];
 	$active_mount_points = [];
 	$stale_mount_points = [];
-	define('VERSION', '2.1017.3');
+	define('VERSION', '2.1022.1');
 	
 	function load_config()
 	{
@@ -84,9 +84,12 @@
 	{
 		global $db, $commands, $active_mount_points, $stale_mount_points;
 
+		$line_width = 40;
+
 		if (!empty($db)) {
 			$i = 0;
 			$stale_mount_points = [];
+			printf("%s\n", str_repeat('-', $line_width));
 			foreach ($db as $arr) {
 				$mount_point = '/mnt/' . $arr['mount_point'];
 				unset($mountpoint_output);
@@ -109,7 +112,7 @@
 				$color = in_array($mount_point . '/', $active_mount_points) ? $cc : 245;
 				printf(" % 2d. %s\n", ++$i, cc($color, $arr['mount_point']));
 			}
-			printf("%s\n", str_repeat('-', 22));
+			printf("%s\n", str_repeat('-', $line_width));
 		}
 
 		printf("%s: ", cc('bold', 'COMMANDS'));
@@ -130,25 +133,18 @@
 		exec('pgrep -a sshfs', $pgrep_output);
 		if (!empty($pgrep_output)) {
 
-			/* Формируем CLI таблицу с псевдо-графикой */
-			$cli_table = [];
-
+			printf("\n%s\n\n", cc('italic', 'Active connections:'));
 			foreach ($pgrep_output as $pgrep) {
 				if (preg_match('/^(?<pid>\d+)\ssshfs\s(?<username>[^@]+)@(?<host>[^:]+):(?<path>\S+) -p 22 -o IdentityFile=(?<pub>\S+)\s(?<mount>\/.+)$/', $pgrep, $m)) {
 					$pids[] = $m['pid'];
 					$active_mount_points[(int)$m['pid']] = $m['mount'];
 
-					$cli_table[] = [
-						[$m['pid'], 197],
-						[$m['mount'], 220],
-						[$m['path'], 38],
-					];
+					printf("  pid: %s\n", cc(197, $m['pid']));
+					printf("  %s\n", cc(220, $m['mount']));
+					printf("  %s\n\n", cc(38, $m['path']));
 
 				} else die("Invalid preg: {$pgrep}\n");
 			}
-			print(PHP_EOL);
-			cli_table($cli_table, ['PID', 'MOUNT POINT', 'REMOTE DIR']);
-			print(PHP_EOL);
 
 		} else printf("%s\n", cc('italic', 'No sshfs process found'));
 	}
