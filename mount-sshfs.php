@@ -6,7 +6,7 @@
 	$pids = [];
 	$active_mount_points = [];
 	$stale_mount_points = [];
-	define('VERSION', '2.1022.1');
+	define('VERSION', '2.103.0');
 	
 	function load_config()
 	{
@@ -89,7 +89,7 @@
 		if (!empty($db)) {
 			$i = 0;
 			$stale_mount_points = [];
-			printf("%s\n", str_repeat('-', $line_width));
+			printf("%s\n", str_repeat('─', $line_width));
 			foreach ($db as $arr) {
 				$mount_point = '/mnt/' . $arr['mount_point'];
 				unset($mountpoint_output);
@@ -112,7 +112,7 @@
 				$color = in_array($mount_point . '/', $active_mount_points) ? $cc : 245;
 				printf(" % 2d. %s\n", ++$i, cc($color, $arr['mount_point']));
 			}
-			printf("%s\n", str_repeat('-', $line_width));
+			printf("%s\n", str_repeat('─', $line_width));
 		}
 
 		printf("%s: ", cc('bold', 'COMMANDS'));
@@ -209,7 +209,7 @@
 			}
 			print(PHP_EOL);
 			foreach ($header as $col => $title) {
-				print(str_repeat('-', $max[$col])) . str_repeat('-', strlen($gap));
+				print(str_repeat('─', $max[$col])) . str_repeat('─', strlen($gap));
 			}
 			print(PHP_EOL);
 		}
@@ -233,7 +233,7 @@
 		}
 
 		foreach ($header as $col => $title) {
-			print(str_repeat('-', $max[$col])) . str_repeat('-', strlen($gap));
+			print(str_repeat('─', $max[$col])) . str_repeat('─', strlen($gap));
 		}
 
 	}
@@ -351,10 +351,9 @@
 		$commands = array_values($commands);
 		input:
 		$input = readln('mountsshfs> ');
-		// echo chr(27) . '[0G' . chr(27) . '[1A';
-		// clear_line();
 		if ($input === '') goto input;
 
+		// Input: digit
 		if (preg_match('/^[0-9 ]+$/', $input)) {
 
 			$indexes = [];
@@ -372,6 +371,7 @@
 					$indexes[] = intval($index) - 1;
 			}
 
+			mount_by_index:
 			$success = false;
 			foreach ($indexes as $index) {
 
@@ -422,7 +422,7 @@
 				print_list();
 			}
 				
-		} else {
+		} else { // Input: no digit
 			$command = trim($input);
 			$command_index = null;
 			if (preg_match('/^(.+) (\d+)$/', $command, $m)) {
@@ -442,7 +442,6 @@
 					$mount_point = readln(sprintf("\t%s ", cc(248, 'mount point:')));
 					$port        = 22;
 					$id_rsa      = null;
-
 
 					print(PHP_EOL);
 					foreach ($find_output as $key => $pub) {
@@ -599,6 +598,27 @@
 				case 'exit': exit();
 				
 				default:
+
+					// Search mount point name by input
+					$results = [];
+					foreach ($db as $key => $arr) {
+						if (strpos($arr['mount_point'], $command) !== false)
+							$results[] = $key;
+					}
+
+					if (!empty($results)) {
+						if (count($results) === 1) {
+							$indexes = $results;
+							goto mount_by_index;
+						} else {
+							printf("%s %s:\n", cc(210, 'Too many results for entry'), cc('214', '"' . $command .'"'));
+							foreach($results as $index) {
+								printf("  - %s\n", $db[$index]['mount_point']);
+							}
+						}
+						break;
+					}
+
 					warning('Unregistered command', $command);
 					goto input;
 					break;
