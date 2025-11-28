@@ -6,7 +6,7 @@
 	$pids = [];
 	$active_mount_points = [];
 	$stale_mount_points = [];
-	define('VERSION', '2.103.0');
+	define('VERSION', '2.15.0');
 	
 	function load_config()
 	{
@@ -430,6 +430,7 @@
 				$command_index = $m[2];
 			}
 			switch ($command) {
+				case 'new':
 				case 'add':
 					exec("find /home/{$current_user}/.ssh -type f -name '*.pub'", $find_output);
 					$find_output = array_map(function ($x) { return preg_replace('~^.+/~', '', $x); }, $find_output);
@@ -481,7 +482,7 @@
 						'rsa'         => $rsa,
 						'mount_point' => $mount_point,
 					];
-					save_config();
+					sort_list();
 					print_list();
 					break;
 
@@ -594,6 +595,7 @@
 					break;
 
 				case 'list': pgrep_list(); print_list(); break;
+				case 'sort': sort_list(); pgrep_list(); print_list(); break;
 				case 'version': print_version(); break;
 				case 'exit': exit();
 				
@@ -624,6 +626,20 @@
 					break;
 			}
 		}
+	}
+
+	function sort_list() {
+		global $db;
+
+		foreach ($db as $key => $item) {
+			$db[$key]['sort'] = substr_count($item['mount_point'], '/');
+		}
+
+		$sort_column = array_column($db, 'sort');
+		$mount_point_column = array_column($db, 'mount_point');
+		array_multisort($sort_column, SORT_ASC, $mount_point_column, SORT_ASC, $db);
+
+		save_config();
 	}
 
 	
