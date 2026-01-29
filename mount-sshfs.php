@@ -6,7 +6,7 @@
 	$pids = [];
 	$active_mount_points = [];
 	$stale_mount_points = [];
-	define('VERSION', '2.15.0');
+	define('VERSION', '2.16.0');
 	
 	function load_config()
 	{
@@ -82,7 +82,7 @@
 
 	function print_list()
 	{
-		global $db, $commands, $active_mount_points, $stale_mount_points;
+		global $db, $commands, $active_mount_points, $stale_mount_points, $just_mounted;
 
 		$line_width = 40;
 
@@ -101,6 +101,8 @@
 					}
 				}
 				$cc = (substr_count($arr['mount_point'], '/')) ? '220 bold underline' : '82 bold underline';
+				if (!empty($just_mounted))
+					if (in_array('/mnt/' . $arr['mount_point'], $just_mounted)) $cc = preg_replace('/(\d+)/', 'bg:$1 232', $cc);
 				if (empty($is_mounted) || $is_mounted === 'Killed') {
 					kill_mount($i);
 					$is_mounted = exec_timeout('mountpoint ' . $mount_point, 1);
@@ -115,13 +117,7 @@
 			printf("%s\n", str_repeat('─', $line_width));
 		}
 
-		printf("%s: ", cc('bold', 'COMMANDS'));
-		foreach ($commands as $key => $cmd) {
-			$s = ($key) ? ' | ' : '';
-			printf("%s%s", cc(220, $s), cc('underline 225', $cmd));
-		}
-
-		printf("\n\n%s\n\n", cc('248 italic', 'Type command or number(s) of entries to mount:'));
+		$just_mounted = [];
 
 	}
 
@@ -159,6 +155,17 @@
 	{
 		printf("%s\n", cc('underline italic', 'https://github.com/garrylie/mountsshfs'));
 		printf("Version %s\n", cc('bold 226', VERSION));
+	}
+
+	function print_help() {
+		global $commands;
+		printf("%s: ", cc('bold', 'COMMANDS'));
+		foreach ($commands as $key => $cmd) {
+			$s = ($key) ? ' | ' : '';
+			printf("%s%s", cc(220, $s), cc('underline 225', $cmd));
+		}
+
+		printf("\n\n%s\n\n", cc('248 italic', 'Type command or number(s) of entries to mount:'));
 	}
 
 	function cli_table($table, $header = null, $options = [])
@@ -342,7 +349,7 @@
 
 	$db = load_config();
 
-	$commands = ['add', 'edit', 'delete', 'kill', 'kill all', 'list', 'version', 'exit'];
+	$commands = ['add', 'edit', 'delete', 'kill', 'kill all', 'list', 'help', 'version', 'exit'];
 
 	print_version();
 	pgrep_list();
@@ -373,6 +380,7 @@
 
 			mount_by_index:
 			$success = false;
+			$just_mounted = [];
 			foreach ($indexes as $index) {
 
 				if (!array_key_exists($index, $db)) {
@@ -413,6 +421,7 @@
 						} else goto sshfs_retry;
 					}
 				} else {
+					$just_mounted[] = $mount_point;
 					printf("%s: %s\n", cc(82, 'Successfully mounted'), cc(220, $mount_point));
 					$success = true;
 				}
@@ -597,6 +606,7 @@
 				case 'list': pgrep_list(); print_list(); break;
 				case 'sort': sort_list(); pgrep_list(); print_list(); break;
 				case 'version': print_version(); break;
+				case 'help': print_help(); break;
 				case 'exit': exit();
 				
 				default:
