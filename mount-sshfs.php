@@ -6,7 +6,9 @@
 	$pids = [];
 	$active_mount_points = [];
 	$stale_mount_points = [];
-	define('VERSION', '2.16.0');
+	define('VERSION', '2.2.0');
+	define('RELEASE_DATE', '2026-02-26');
+	define('MOUNT_DIR', '/mnt/');
 	
 	function load_config()
 	{
@@ -82,16 +84,18 @@
 
 	function print_list()
 	{
-		global $db, $commands, $active_mount_points, $stale_mount_points, $just_mounted;
+		global $db, $commands, $active_mount_points, $stale_mount_points, $just_mounted, $just_added;
 
 		$line_width = 40;
 
 		if (!empty($db)) {
+			pgrep_list();
 			$i = 0;
 			$stale_mount_points = [];
 			printf("%s\n", str_repeat('─', $line_width));
-			foreach ($db as $arr) {
-				$mount_point = '/mnt/' . $arr['mount_point'];
+			foreach ($db as $key => $arr) {
+
+				$mount_point = MOUNT_DIR . $arr['mount_point'];
 				unset($mountpoint_output);
 				try {
 					$is_mounted = exec_timeout('mountpoint ' . $mount_point, 1);
@@ -100,9 +104,13 @@
 						sudo_mkdir($mount_point);
 					}
 				}
+
+				$default_cc = 245;
 				$cc = (substr_count($arr['mount_point'], '/')) ? '220 bold underline' : '82 bold underline';
 				if (!empty($just_mounted))
-					if (in_array('/mnt/' . $arr['mount_point'], $just_mounted)) $cc = preg_replace('/(\d+)/', 'bg:$1 232', $cc);
+					if (in_array(MOUNT_DIR . $arr['mount_point'], $just_mounted)) $cc = preg_replace('/(\d+)/', 'bg:$1 232', $cc);
+				if (!empty($just_added))
+					if ($arr['mount_point'] == $just_added) $default_cc = 81;
 				if (empty($is_mounted) || $is_mounted === 'Killed') {
 					kill_mount($i);
 					$is_mounted = exec_timeout('mountpoint ' . $mount_point, 1);
@@ -111,7 +119,7 @@
 						$cc = 210;
 					}
 				}
-				$color = in_array($mount_point . '/', $active_mount_points) ? $cc : 245;
+				$color = in_array($mount_point . '/', $active_mount_points) ? $cc : $default_cc;
 				printf(" % 2d. %s\n", ++$i, cc($color, $arr['mount_point']));
 			}
 			printf("%s\n", str_repeat('─', $line_width));
@@ -121,23 +129,43 @@
 
 	}
 
-	function pgrep_list()
+	function pgrep_list($show_info = false, $command_index = null)
 	{
-		global $commands, $pids, $active_mount_points;
+		global $db, $commands, $pids, $active_mount_points;
+		
+		if (!empty($command_index)) {
+			$info = $db[$command_index - 1];
+			$maxlength = 0;
+
+			printf("\nEntry %s: %s\n\n", cc('underline', '#' . $command_index), cc('bold 81', $info['mount_point']));
+
+			foreach ($info as $key => $value)
+				if (strlen($key) > $maxlength)
+					$maxlength = strlen($key);
+
+			foreach ($info as $key => $value) {
+				printf("  %s%s: %s\n", str_repeat(' ', $maxlength - strlen($key)), $key, cc(228, $value));
+			}
+			print("\n");
+			return;
+		}
 		$pids = [];
 		$active_mount_points = [];
 		exec('pgrep -a sshfs', $pgrep_output);
 		if (!empty($pgrep_output)) {
 
-			printf("\n%s\n\n", cc('italic', 'Active connections:'));
+			if ($show_info)
+				printf("\n%s\n\n", cc('italic', 'Active connections:'));
 			foreach ($pgrep_output as $pgrep) {
 				if (preg_match('/^(?<pid>\d+)\ssshfs\s(?<username>[^@]+)@(?<host>[^:]+):(?<path>\S+) -p 22 -o IdentityFile=(?<pub>\S+)\s(?<mount>\/.+)$/', $pgrep, $m)) {
 					$pids[] = $m['pid'];
 					$active_mount_points[(int)$m['pid']] = $m['mount'];
 
-					printf("  pid: %s\n", cc(197, $m['pid']));
-					printf("  %s\n", cc(220, $m['mount']));
-					printf("  %s\n\n", cc(38, $m['path']));
+					if ($show_info) {
+						printf("  pid: %s\n", cc(197, $m['pid']));
+						printf("  %s\n", cc(220, $m['mount']));
+						printf("  %s\n\n", cc(38, $m['path']));
+					}
 
 				} else die("Invalid preg: {$pgrep}\n");
 			}
@@ -154,15 +182,20 @@
 	function print_version()
 	{
 		printf("%s\n", cc('underline italic', 'https://github.com/garrylie/mountsshfs'));
-		printf("Version %s\n", cc('bold 226', VERSION));
+		printf("Version %s (%s)\n", cc('bold 226', VERSION), cc('italic 226', RELEASE_DATE));
 	}
 
 	function print_help() {
 		global $commands;
-		printf("%s: ", cc('bold', 'COMMANDS'));
-		foreach ($commands as $key => $cmd) {
-			$s = ($key) ? ' | ' : '';
-			printf("%s%s", cc(220, $s), cc('underline 225', $cmd));
+		print("\nCommands:\n\n");
+		$maxlength = 0;
+
+		foreach ($commands as $cmd => $description)
+			if (strlen($cmd) > $maxlength)
+				$maxlength = strlen($cmd);
+
+		foreach ($commands as $cmd => $description) {
+			printf("  %s%s  %s\n", cc('underline 225', $cmd), str_repeat(' ', $maxlength - strlen($cmd)), $description);
 		}
 
 		printf("\n\n%s\n\n", cc('248 italic', 'Type command or number(s) of entries to mount:'));
@@ -328,7 +361,7 @@
 
 	function kill_mount($index) {
 		global $db, $active_mount_points;
-		$mount_point = '/mnt/' . rtrim($db[$index]['mount_point'], '/') . '/';
+		$mount_point = MOUNT_DIR . rtrim($db[$index]['mount_point'], '/') . '/';
 		$pid = intval(array_search($mount_point, $active_mount_points));
 		if ($pid) {
 			printf("\n%s %s (%s)\n", cc('bold underline 225', 'kill:'), cc(220, $db[$index]['mount_point']), cc(210, $pid));
@@ -349,16 +382,37 @@
 
 	$db = load_config();
 
-	$commands = ['add', 'edit', 'delete', 'kill', 'kill all', 'list', 'help', 'version', 'exit'];
+	$commands = [
+		'add'      => 'Add new entry',
+		'edit'     => 'Edit entry (edit <index>)',
+		'delete'   => 'Delete entry (delete <index>)',
+		'kill'     => 'Kill connection (kill <index>)',
+		'kill all' => 'Kill all active connections',
+		'list'     => 'Refresh list of entries',
+		'info'     => 'Show active connections or (if info <index>) show entry info',
+		'help'     => 'This help',
+		'version'  => 'Show version',
+		'exit'     => 'Terminate program',
+	];
 
 	print_version();
-	pgrep_list();
-	print_list();
+	if (empty($argv[1])) {
+		print_list();
+	}
+
 	while (true) {
-		$commands = array_values($commands);
+
+		if (!empty($argv[1])) {
+			$input = implode(' ', array_slice($argv, 1));
+			unset($argv[1]);
+			goto process;
+		}
+
 		input:
 		$input = readln('mountsshfs> ');
 		if ($input === '') goto input;
+
+		process:
 
 		// Input: digit
 		if (preg_match('/^[0-9 ]+$/', $input)) {
@@ -381,27 +435,29 @@
 			mount_by_index:
 			$success = false;
 			$just_mounted = [];
+			$just_added = null;
 			foreach ($indexes as $index) {
 
 				if (!array_key_exists($index, $db)) {
 					warning('Invalid index', $index + 1);
 				}
 
-				$mount_dir = '/mnt/' . $db[$index]['mount_point'];
+				$mount_dir = MOUNT_DIR . $db[$index]['mount_point'];
 				if (in_array($mount_dir, $stale_mount_points)) kill_mount($index);
 				if (!file_exists($mount_dir)) {
 					sudo_mkdir($mount_dir);
 				}
 
-				$cmd = sprintf('sshfs %s@%s:%s -p %d -o IdentityFile=~/.ssh/%s,reconnect,ServerAliveInterval=60,ServerAliveCountMax=3 /mnt/%s/ 2>&1 &',
+				$cmd = sprintf('sshfs %s@%s:%s -p %d -o IdentityFile=~/.ssh/%s,reconnect,ServerAliveInterval=60,ServerAliveCountMax=3 %s%s/ 2>&1 &',
 					$db[$index]['username'],
 					$db[$index]['host'],
 					$db[$index]['path'],
 					$db[$index]['port'],
 					$db[$index]['rsa'],
+					MOUNT_DIR,
 					$db[$index]['mount_point']
 				);
-				$mount_point = '/mnt/' . $db[$index]['mount_point'];
+				$mount_point = MOUNT_DIR . $db[$index]['mount_point'];
 				$retries = 0;
 				sshfs_retry:
 				// printf("Running command:\n%s\n", cc([38, 'bold'], $cmd));
@@ -427,7 +483,6 @@
 				}
 			}
 			if ($success) {
-				pgrep_list();
 				print_list();
 			}
 				
@@ -468,7 +523,7 @@
 					if (! $pub_index) $pub_index = $id_rsa;
 					
 
-					$mount_dir = '/mnt/' . preg_replace('~^/mnt/~', '', $mount_point);
+					$mount_dir = MOUNT_DIR . preg_replace('~^' . MOUNT_DIR . '~', '', $mount_point);
 					if (!file_exists($mount_dir)) {
 						sudo_mkdir($mount_dir);
 					}
@@ -491,16 +546,24 @@
 						'rsa'         => $rsa,
 						'mount_point' => $mount_point,
 					];
+					$just_added = $mount_point;
 					sort_list();
 					print_list();
 					break;
 
 				case 'delete':
-					$input = readln(sprintf('%s index (1-%d): ', cc('bold underline 225', 'delete'), count($db)));
-					$input = intval($input);
+					if (empty($command_index)) {
+						$input = readln(sprintf('%s index (1-%d): ', cc('bold underline 225', 'delete'), count($db)));
+						$input = intval($input);
+					} else $input = $command_index;
 					if ($input < 1 || $input > count($db)) {
 						warning('Invalid index', $input);
 						goto input;
+					}
+					$confirm = readln(sprintf("Are you sure you want to delete %s? [Y/N]: ", cc('bold underline 81', $db[$input-1]['mount_point'])));
+					if (!in_array(mb_strtolower($confirm), ['y', 'yes', 'д', 'да', 'ok', '+', '1'])) {
+						printf("%s\n", cc(210, 'Aborted!'));
+						break;
 					}
 					unset($db[$input-1]);
 					save_config();
@@ -539,7 +602,7 @@
 					$rsa         = readln('public key: ');
 					$mount_point = readln('mount point: ');
 
-					$mount_dir = '/mnt/' . preg_replace('~^/mnt/~', '', $mount_point);
+					$mount_dir = MOUNT_DIR . preg_replace('~^' . MOUNT_DIR . '~', '', $mount_point);
 					if (!file_exists($mount_dir)) {
 						sudo_mkdir($mount_dir);
 					}
@@ -582,7 +645,6 @@
 							goto input;
 						}
 						kill_mount($index);
-						pgrep_list();
 						print_list();
 					}
 					break;
@@ -595,16 +657,16 @@
 						printf("Running command:\n%s\n", cc([197, 'bold'], $cmd));
 						exec($cmd);
 						foreach ($db as $arr)
-							$cmd = "sudo umount -l '/mnt/{$arr['mount_point']}'";
+							$cmd = "sudo umount -l '" . MOUNT_DIR . $arr['mount_point'] . "'";
 						printf("Running command:\n%s\n", cc([197, 'bold'], $cmd));
 						exec($cmd);
-						pgrep_list();
 						print_list();
 					}
 					break;
 
-				case 'list': pgrep_list(); print_list(); break;
-				case 'sort': sort_list(); pgrep_list(); print_list(); break;
+				case 'list': print_list(); break;
+				case 'info': pgrep_list(true, $command_index); break;
+				case 'sort': sort_list(); print_list(); break;
 				case 'version': print_version(); break;
 				case 'help': print_help(); break;
 				case 'exit': exit();
