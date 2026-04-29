@@ -6,8 +6,8 @@
 	$pids = [];
 	$active_mount_points = [];
 	$stale_mount_points = [];
-	define('VERSION', '2.2.0');
-	define('RELEASE_DATE', '2026-02-26');
+	define('VERSION', '2.2.1');
+	define('RELEASE_DATE', '2026-04-29');
 	define('MOUNT_DIR', '/mnt/');
 	
 	function load_config()
@@ -596,7 +596,7 @@
 
 					edit:
 
-					$login       = readln('ssh username: ');
+					$username    = readln('ssh username: ');
 					$host        = readln('ssh host: ');
 					$path        = readln('ssh remote path: ');
 					$rsa         = readln('public key: ');
